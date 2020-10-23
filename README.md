@@ -42,13 +42,13 @@ Here is the not so tricky part:
 - set the _Domain name_ to your strapi domain
 - in the _External App_ tab, add a new 'Web Server'
 
-![](image/openlitespeed_external_app.jpeg)
+![](image/openlitespeed_external_app.jpg)
 
 Give it an obvious name, use the default Strapi address and port for the 'address' field: `0.0.0.0:1337`
 
 - In the _Context_ tab, add a new 'Proxy' context
 
-![](image/openlitespeed_context_proxy.jpeg)
+![](image/openlitespeed_context_proxy.jpg)
 
 Use the root `/` for the 'URI' field and select your previously created web server form the list below.
 I added some cache headers in the 'Header Operations' field (feel free to change this):
