@@ -4,102 +4,97 @@ Why do it simple when you can do it weird?
 
 ## Why would you do that?
 
-When it comes to web servers, it's usually a question of nginx or ~~nginx~~ apache. Recently, it might not even be a question anymore considering tools like [netlify](https://www.netlify.com/ "Netlify’s website") or [vercel](https://vercel.com/ "Vercel’ website") handle almost all backend configuration on their own.
+When it comes to web servers, it's usually a question of nginx or apache. Recently, it might not even be a question anymore considering tools like [netlify](https://www.netlify.com/ "Netlify’s website") or [vercel](https://vercel.com/ "Vercel’ website") handle almost all backend configuration on their own.
 
 However, when installing Strapi the regular way, we need to choose. I chose [OpenLiteSpeed.](https://openlitespeed.org "OpenLiteSpeed’s website")
 
 ### Benefits of OpenLiteSpeed
 
 - it has a graphical interface
-- overall performances are better than nginx or apache ([test1](https://www.cyberhosting.org/openlitespeed-vs-nginx/ "Third party test of OLS vs nginx") - [test2](https://www.litespeedtech.com/benchmarks/litespeed-small-static-file-faster-nginx-http2 "Official test of OLS vs nginx vs apache"))
-- its [caching performances](https://openlitespeed.org/benchmarks/small-static-file/ "Performance comparison between OpenLiteSpeed, nginx and apache") are great
 - it has a good [documentation](https://openlitespeed.org/support/ "OpenLiteSpeed’s documentation")
 - http/3 (quic) support out of the box
 - and more [features](https://openlitespeed.org/#features "list of OLS features")
 
-## The interesting part
+## Installing OpenLiteSpeed
 
-### Deploying OpenLiteSpeed
+OpenLiteSpeed can be installed on a server (ubuntu/debian/centOS) through [official repositories](https://openlitespeed.org/kb/install-ols-from-litespeed-repositories/) or using [a pre-configured image](https://do.co/2LUwBVp "OpenLiteSpeed image on Digital Ocean") like Digital Ocean offers.
 
-OpenLiteSpeed can be installed on a server (ubuntu/debian/centOS) through a neat [1click script](https://openlitespeed.org/kb/1-click-install/ "1 click install OpenLiteSpeed") or using [a pre-configured image](https://do.co/2LUwBVp "OpenLiteSpeed image on Digital Ocean") like Digital Ocean offers.
+I tried both and everything works fine.
 
-I tried both and everything works just fine it's a real pleasure. Here is the 1click install line that I used: `bash ols1clk.sh`  
-This line will install OLS without Wordpress.
+## Virtual host configuration
 
-[![A successful http3 test on a new instance of OpenLiteSpeed](image/http3.jpg)](https://www.http3check.net "Check http3 status")
-
-### Deploying Strapi
-
-I followed the [Digital Ocean guide](https://strapi.io/documentation/v3.x/getting-started/deployment.html "Strapi deployment guides") and set up Strapi, the database and pm2. I ignored the part about Nginx and allowing port 1337 although it can be useful for testing.
-
-### Virtual host configuration
-
-Here is the not so tricky part:
+### Basic tab
 
 - login into your admin panel, usually accessible on port 7080 (your.ip.address:7080)
 - add a new virtual host following [the official guide](https://openlitespeed.org/kb/setting-up-name-based-virtual-hosting-on-openlitespeed/ "New virtual host guide (new window)")
-- the _Document Root_ does not matter, I set it to a folder containing an empty html file
+- the _Virtual Host Name_ can be anything like "strapi"
+- the _Virtual host root_ can be the folder where strapi lives
+- for the config file, you can use this string: `$SERVER_ROOT/conf/vhosts/$VH_NAME/$VH_NAME.conf`  
+  It uses server variables to put the conf inside `/usr/local/lsws/conf/vhosts/strapi/strapi.conf`
+  When you save, OLS will ask you if it should create the .conf file for you, say yes.
+
+![](https://user-images.githubusercontent.com/20305403/140758038-2e47f961-6a42-4dc3-90df-c6b850779fe8.png)
+
+### General tab
+
+- the _Document Root_ does not matter, I set it to the `public` strapi folder
 - set the _Domain name_ to your strapi domain
-- in the _External App_ tab, add a new 'Web Server'
 
-![](image/openlitespeed_external_app.jpg)
+![](https://user-images.githubusercontent.com/20305403/140758724-46c7cb70-1f66-49ae-b3a0-a288f6338233.png)
 
-Give it an obvious name, use the default Strapi address and port for the 'address' field: `0.0.0.0:1337`
+### External App tab
 
-- In the _Context_ tab, add a new 'Proxy' context
+- add a new 'Web Server' in the _external app_ tab
+- give it an obvious name
+- set the address to strapi's default `0.0.0.0:1337`
+- you can define environment variables in _Environment_ instead of a .env file if you wish
 
-![](image/openlitespeed_context_proxy.jpg)
+![](https://user-images.githubusercontent.com/20305403/140758868-75a12987-f449-4a88-9eac-7009fa5b90d8.png)
 
-Use the root `/` for the 'URI' field and select your previously created web server form the list below.
-I added some cache headers in the 'Header Operations' field (feel free to change this):
+### Context tab
 
-```
-unset Cache-control
-set Cache-control public, max-age=15552000
-```
+- add a new 'Proxy' context
+- use the root `/` for the 'URI' field
+- select your previously created web server form the list
+- you can set headers if you want in the _Header Operations_ field
+- allowed access to everyone with `*` inside _Access Allowed_
 
-I allowed access to everyone with `*` and told the server to use `utf-8` as the default charset encoding (it never hurts).
+![](https://user-images.githubusercontent.com/20305403/140759885-ac1cb611-e0da-4779-9113-a16bccc40edf.png)
 
-### Listener configuration
+### SSL tab
+
+Here you can define a TLS certificate to be used by OLS for your domain.
+
+![](https://user-images.githubusercontent.com/20305403/140760305-6bb4887c-0972-420e-97be-f4d6419bf60b.png)
+
+
+
+## Listener configuration
 
 On the listeners window [bind your virtual host to both http and https (ssl) listeners.](https://openlitespeed.org/kb/setting-up-name-based-virtual-hosting-on-openlitespeed/#Create_and_Assign_Listeners "Binding virtual host to listener guide (new window)")
 
-It’s a pretty straight forward process. Or so I thought.
+It’s a pretty straightforward process. Or so I thought.
 
 In order to serve both ipv4 and ipv6 [LiteSpeed recommends to use separate listeners.](https://www.litespeedtech.com/docs/webserver/config/listener-general "Listener LiteSpeed documentation (new window)") However, I ran into some problems trying to configure separate IPv4/IPv6 listeners so here's how to do it with one.
 
-On the 'Address Settings', choose `[ANY] IPv6` for the 'IP Address' field. The 'Port' field depends on http/https (80/443) but **be sure to do both listeners.**
+### General tab
 
-On the 'Virtual Host Mappings', add a new host and choose your Strapi virtual host from the drop-down. In order to listen to ipv4 and ipv6, we need to specify both IP adresses and use a particular syntax for the ipv4 by prepending it with `::FFFF:` as such: `::FFFF:IPV4, IPV6, domain.tld`
+- on the _Address Settings_, choose `[ANY] IPv6` for the _IP Address_ field.
+- the _Port_ field depends on http/https (80/443) but **be sure to do both listeners.**
 
-![](image/listener.jpg)
+On the _Virtual Host Mappings_, add a new host and choose your Strapi virtual host from the drop-down. In order to listen to ipv4 and ipv6, we need to specify both IP adresses and use a particular syntax for the ipv4 by prepending it with `::FFFF:` as such: ` strapi.yourdomain.tld, ::FFFF:IPV4, IPV6`
 
-**We’re done!** Strapi should be accessible through its domain.
-Don’t forget to perform a 'graceful restart' of OpenLiteSpeed and close port 7080 when you’re done with the admin panel.
+Do the same for the secure listener on port 443
 
-## When to use OpenLiteSpeed
+![](https://user-images.githubusercontent.com/20305403/140761377-6d5c43ab-189c-4a4a-91ae-c151e959af7d.png)
 
-I would recommend OLS to people that are not familiar or not happy with handwritten server configuration. OLS provides so much settings that it's almost fun to configure and very fast to try out. Plus it's always nice to have a graphical interface 😬
+## Deploying Strapi
 
-## Real life comparison
+Now that the server is ready, we can deploy strapi.
+I followed the [official guide](https://strapi.io/documentation/developer-docs/latest/setup-deployment-guides/deployment.html#deployment "Strapi deployment guides"). It's basically `NODE_ENV=production yarn build` and `NODE_ENV=production yarn start`
 
-Without doing any web server configuration except the bare minimum
+It's possible (and recommended) to automate this with pm2.
 
-### Strapi on nginx (digital ocean app)
-
-I used the 1click app on Digital Ocean's market place that uses nginx.
-Installed dependencies with `yarn install`, built for production `NODE_ENV=production yarn build` and ran `NODE_ENV=production yarn start`
-
-Adding an image and checking its status shows us that it is being served using http/1.1 by default.
-
-![](image/strapi-nginx.jpg)
-
-### Strapi on OLS (manual install)
-
-There is **a bit more work** to be done of course but it's mainly wget, curl and apt command to install some stuff (OLS, nvm, yarn, ufw, git, etc.) and graphical configuration within OLS ❤️
-
-After following this very tutorial, I successfully configured and deployed Strapi on OpenLiteSpeed.
-
-Adding an image and checking its status shows us that it is being served using http/3 by default (if your browser supports it otherwise it's http/2).
-
-![](image/strapi-ols.jpg)
+## We’re done
+Strapi should be accessible through its domain.  
+Don’t forget to perform a _graceful restart_ of OpenLiteSpeed and close port 7080 when you’re done with the admin panel.
